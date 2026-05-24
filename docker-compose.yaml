@@ -1,0 +1,9 @@
+services:
+  api:
+    build: "."  
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./:/express-app
+      - ./:/express-app/node_modules
+    command: npm run dev
