@@ -1,8 +1,37 @@
-const express=require('express');
-const router=express.Router();
-const auth_controller=require('../controllers/auth_controllers.js');
+const express = require('express');
+const router = express.Router();
+const { body } = require('express-validator');
+const authController = require('../controllers/auth_controllers');
+const validate = require('../middlewares/validate');
 
-router.post('/register',auth_controller.register);
-router.post('/login',auth_controller.login);
+const registerValidation = [
+  body('username')
+    .trim()
+    .notEmpty()
+    .withMessage('Username is required')
+    .isLength({ min: 3, max: 50 })
+    .withMessage('Username must be between 3 and 50 characters')
+    .matches(/^[a-zA-Z0-9_-]+$/)
+    .withMessage('Username can only contain alphanumeric characters, underscores and hyphens'),
+  body('password')
+    .notEmpty()
+    .withMessage('Password is required')
+    .isLength({ min: 6 })
+    .withMessage('Password must be at least 6 characters long'),
+  body('email')
+    .optional()
+    .trim()
+    .isEmail()
+    .withMessage('Email must be a valid email address')
+    .normalizeEmail(),
+];
 
-module.exports=router;
+const loginValidation = [
+  body('username').trim().notEmpty().withMessage('Username is required'),
+  body('password').notEmpty().withMessage('Password is required'),
+];
+
+router.post('/register', validate(registerValidation), authController.register);
+router.post('/login', validate(loginValidation), authController.login);
+
+module.exports = router;

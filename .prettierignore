@@ -5,10 +5,5 @@ dist/
 package-lock.json
 checkers/
 config/
-routes/
-controllers/
-middlewares/
-db.js
-docker-compose.yaml
-index.js
+routes/checks.js
 frontend/

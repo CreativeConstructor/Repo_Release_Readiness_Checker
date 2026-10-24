@@ -27,11 +27,8 @@ module.exports = [
       'frontend/**',
       'checkers/**',
       'config/**',
-      'routes/**',
-      'controllers/**',
-      'middlewares/**',
-      'index.js',
-      'db.js',
+      'routes/checks.js',
+      'routes/home_routes.js',
     ],
   },
 ];
