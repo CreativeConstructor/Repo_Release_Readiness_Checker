@@ -6,4 +6,6 @@ package-lock.json
 checkers/
 config/
 routes/checks.js
+routes/home_routes.js
+docker-compose.yaml
 frontend/
