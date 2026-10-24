@@ -2,6 +2,7 @@ const {
   fetchRepositorySnapshot,
   fetchPackageJson,
   fetchDockerfile,
+  fetchGitignore,
 } = require('../services/github/snapshot_service');
 const AppError = require('../utils/app_error');
 
@@ -25,7 +26,7 @@ describe('GitHub Snapshot Service (fetchRepositorySnapshot)', () => {
     };
   });
 
-  test('fetches full snapshot including tree, commits, README, and package.json', async () => {
+  test('fetches full snapshot including tree, commits, README, package.json, gitignore, and octokit', async () => {
     // 1. repos.get
     mockOctokit.rest.repos.get.mockResolvedValueOnce({
       data: { default_branch: 'main' },
@@ -44,6 +45,7 @@ describe('GitHub Snapshot Service (fetchRepositorySnapshot)', () => {
           { path: 'package.json', type: 'blob', size: 120, sha: 'sha1', mode: '100644' },
           { path: 'README.md', type: 'blob', size: 50, sha: 'sha2', mode: '100644' },
           { path: 'src/index.js', type: 'blob', size: 400, sha: 'sha3', mode: '100644' },
+          { path: '.gitignore', type: 'blob', size: 20, sha: 'sha4', mode: '100644' },
         ],
       },
     });
@@ -73,12 +75,17 @@ describe('GitHub Snapshot Service (fetchRepositorySnapshot)', () => {
       },
     });
 
-    // 6. repos.getContent (package.json)
+    // 6. repos.getContent — package.json and .gitignore (parallel)
     const pkgJsonRaw = JSON.stringify({ name: 'my-project', scripts: { test: 'jest' } });
-    mockOctokit.rest.repos.getContent.mockResolvedValueOnce({
-      data: {
-        content: Buffer.from(pkgJsonRaw).toString('base64'),
-      },
+    const gitignoreRaw = 'node_modules/\n.env\n';
+    mockOctokit.rest.repos.getContent.mockImplementation(async ({ path }) => {
+      if (path === 'package.json') {
+        return { data: { content: Buffer.from(pkgJsonRaw).toString('base64') } };
+      }
+      if (path === '.gitignore') {
+        return { data: { content: Buffer.from(gitignoreRaw).toString('base64') } };
+      }
+      throw Object.assign(new Error('Unexpected path'), { status: 404 });
     });
 
     const snapshot = await fetchRepositorySnapshot({
@@ -92,13 +99,21 @@ describe('GitHub Snapshot Service (fetchRepositorySnapshot)', () => {
     expect(snapshot.fullName).toBe('acme/project');
     expect(snapshot.defaultBranch).toBe('main');
     expect(snapshot.headSha).toBe('abcdef1234567890abcdef1234567890abcdef12');
-    expect(snapshot.filePaths).toEqual(['package.json', 'README.md', 'src/index.js']);
+    expect(snapshot.filePaths).toEqual([
+      'package.json',
+      'README.md',
+      'src/index.js',
+      '.gitignore',
+    ]);
     expect(snapshot.commits).toHaveLength(1);
     expect(snapshot.commits[0].message).toBe('feat: add release readiness checks');
     expect(snapshot.readme.exists).toBe(true);
     expect(snapshot.readme.content).toBe(readmeRaw);
     expect(snapshot.packageJson.exists).toBe(true);
     expect(snapshot.packageJson.parsed).toEqual({ name: 'my-project', scripts: { test: 'jest' } });
+    expect(snapshot.gitignore.exists).toBe(true);
+    expect(snapshot.gitignore.content).toBe(gitignoreRaw);
+    expect(snapshot.octokit).toBe(mockOctokit);
   });
 
   test('handles missing README (404) gracefully without throwing', async () => {
@@ -165,6 +180,24 @@ describe('GitHub Snapshot Service (fetchRepositorySnapshot)', () => {
     expect(res.exists).toBe(true);
     expect(res.path).toBe('Dockerfile');
     expect(res.content).toBe(dockerfileText);
+  });
+
+  test('fetches .gitignore when present and skips API call when absent', async () => {
+    const gitignoreText = 'node_modules/\n.env\n';
+    mockOctokit.rest.repos.getContent.mockResolvedValueOnce({
+      data: { content: Buffer.from(gitignoreText).toString('base64') },
+    });
+
+    const found = await fetchGitignore(mockOctokit, 'acme', 'repo', ['.gitignore', 'src/app.js']);
+    expect(found.exists).toBe(true);
+    expect(found.path).toBe('.gitignore');
+    expect(found.content).toBe(gitignoreText);
+
+    mockOctokit.rest.repos.getContent.mockClear();
+    const missing = await fetchGitignore(mockOctokit, 'acme', 'repo', ['src/app.js']);
+    expect(missing.exists).toBe(false);
+    expect(missing.content).toBeNull();
+    expect(mockOctokit.rest.repos.getContent).not.toHaveBeenCalled();
   });
 
   test('maps repository not found 404 error through mapGitHubError', async () => {

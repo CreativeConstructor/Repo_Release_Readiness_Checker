@@ -251,6 +251,48 @@ const fetchDockerfile = async (octokit, owner, repo, filePaths) => {
 };
 
 /**
+ * Fetches root .gitignore content when present in the tree.
+ * Used by the secrets checker to verify .env exclusion rules.
+ */
+const fetchGitignore = async (octokit, owner, repo, filePaths) => {
+  const hasGitignore = filePaths.some((p) => p.toLowerCase() === '.gitignore');
+  if (!hasGitignore) {
+    return {
+      exists: false,
+      path: null,
+      content: null,
+    };
+  }
+
+  try {
+    return await withRetry(async () => {
+      const { data } = await octokit.rest.repos.getContent({
+        owner,
+        repo,
+        path: '.gitignore',
+      });
+
+      const content = data.content ? Buffer.from(data.content, 'base64').toString('utf-8') : '';
+
+      return {
+        exists: true,
+        path: '.gitignore',
+        content,
+      };
+    });
+  } catch (error) {
+    if (error.status === 404) {
+      return {
+        exists: false,
+        path: null,
+        content: null,
+      };
+    }
+    throw error;
+  }
+};
+
+/**
  * Fetches a full repository snapshot required by the Release Readiness Checkers.
  *
  * @param {Object} params
@@ -258,7 +300,8 @@ const fetchDockerfile = async (octokit, owner, repo, filePaths) => {
  * @param {string} params.repo - GitHub repository name
  * @param {string} [params.token] - Optional GitHub PAT
  * @param {Octokit} [params.octokitClient] - Optional injected Octokit client for testing
- * @returns {Promise<Object>} Snapshot containing tree, commits, README, package.json, HEAD SHA
+ * @returns {Promise<Object>} Snapshot containing tree, commits, README, package.json,
+ *   Dockerfile, .gitignore, HEAD SHA, and the Octokit client for follow-up blob scans
  */
 const fetchRepositorySnapshot = async ({ owner, repo, token, octokitClient }) => {
   const client = octokitClient || (await createOctokitClient(token));
@@ -274,10 +317,11 @@ const fetchRepositorySnapshot = async ({ owner, repo, token, octokitClient }) =>
       fetchReadme(client, owner, repo),
     ]);
 
-    // 3. Fetch package.json and Dockerfile if present in the tree
-    const [packageJson, dockerfile] = await Promise.all([
+    // 3. Fetch package.json, Dockerfile, and .gitignore if present in the tree
+    const [packageJson, dockerfile, gitignore] = await Promise.all([
       fetchPackageJson(client, owner, repo, treeResult.filePaths),
       fetchDockerfile(client, owner, repo, treeResult.filePaths),
+      fetchGitignore(client, owner, repo, treeResult.filePaths),
     ]);
 
     return {
@@ -293,6 +337,10 @@ const fetchRepositorySnapshot = async ({ owner, repo, token, octokitClient }) =>
       readme,
       packageJson,
       dockerfile,
+      gitignore,
+      // Explicit client for checkers that need extra GitHub calls (e.g. blob content scans).
+      // Same instance used to build this snapshot — no second client is created.
+      octokit: client,
       fetchedAt: new Date().toISOString(),
     };
   } catch (error) {
@@ -308,5 +356,6 @@ module.exports = {
   fetchReadme,
   fetchPackageJson,
   fetchDockerfile,
+  fetchGitignore,
   fetchRepositorySnapshot,
 };
