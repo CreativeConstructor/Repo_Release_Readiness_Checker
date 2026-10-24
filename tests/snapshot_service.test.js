@@ -1,6 +1,7 @@
 const {
   fetchRepositorySnapshot,
   fetchPackageJson,
+  fetchDockerfile,
 } = require('../services/github/snapshot_service');
 const AppError = require('../utils/app_error');
 
@@ -152,6 +153,18 @@ describe('GitHub Snapshot Service (fetchRepositorySnapshot)', () => {
     expect(res.exists).toBe(true);
     expect(res.parsed).toBeNull();
     expect(res.parseError).toContain('Invalid JSON');
+  });
+
+  test('fetches and decodes Dockerfile when present in file paths', async () => {
+    const dockerfileText = 'FROM node:20-alpine\nWORKDIR /app\nCOPY . .\n';
+    mockOctokit.rest.repos.getContent.mockResolvedValueOnce({
+      data: { content: Buffer.from(dockerfileText).toString('base64') },
+    });
+
+    const res = await fetchDockerfile(mockOctokit, 'acme', 'repo', ['src/index.js', 'Dockerfile']);
+    expect(res.exists).toBe(true);
+    expect(res.path).toBe('Dockerfile');
+    expect(res.content).toBe(dockerfileText);
   });
 
   test('maps repository not found 404 error through mapGitHubError', async () => {

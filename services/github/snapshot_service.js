@@ -210,6 +210,47 @@ const fetchPackageJson = async (octokit, owner, repo, filePaths) => {
 };
 
 /**
+ * Fetches and decodes the repository Dockerfile if present in the tree.
+ */
+const fetchDockerfile = async (octokit, owner, repo, filePaths) => {
+  const dockerfilePath = filePaths.find((p) => /(^|\/)Dockerfile(\.[a-zA-Z0-9_-]+)?$/i.test(p));
+  if (!dockerfilePath) {
+    return {
+      exists: false,
+      path: null,
+      content: null,
+    };
+  }
+
+  try {
+    return await withRetry(async () => {
+      const { data } = await octokit.rest.repos.getContent({
+        owner,
+        repo,
+        path: dockerfilePath,
+      });
+
+      const content = data.content ? Buffer.from(data.content, 'base64').toString('utf-8') : '';
+
+      return {
+        exists: true,
+        path: dockerfilePath,
+        content,
+      };
+    });
+  } catch (error) {
+    if (error.status === 404) {
+      return {
+        exists: false,
+        path: null,
+        content: null,
+      };
+    }
+    throw error;
+  }
+};
+
+/**
  * Fetches a full repository snapshot required by the Release Readiness Checkers.
  *
  * @param {Object} params
@@ -233,8 +274,11 @@ const fetchRepositorySnapshot = async ({ owner, repo, token, octokitClient }) =>
       fetchReadme(client, owner, repo),
     ]);
 
-    // 3. Fetch package.json if present in the tree
-    const packageJson = await fetchPackageJson(client, owner, repo, treeResult.filePaths);
+    // 3. Fetch package.json and Dockerfile if present in the tree
+    const [packageJson, dockerfile] = await Promise.all([
+      fetchPackageJson(client, owner, repo, treeResult.filePaths),
+      fetchDockerfile(client, owner, repo, treeResult.filePaths),
+    ]);
 
     return {
       owner,
@@ -248,6 +292,7 @@ const fetchRepositorySnapshot = async ({ owner, repo, token, octokitClient }) =>
       commits,
       readme,
       packageJson,
+      dockerfile,
       fetchedAt: new Date().toISOString(),
     };
   } catch (error) {
@@ -262,5 +307,6 @@ module.exports = {
   fetchRecentCommits,
   fetchReadme,
   fetchPackageJson,
+  fetchDockerfile,
   fetchRepositorySnapshot,
 };

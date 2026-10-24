@@ -25,7 +25,6 @@ module.exports = [
       'coverage/**',
       'dist/**',
       'frontend/**',
-      'checkers/**',
       'config/**',
       'routes/checks.js',
       'routes/home_routes.js',

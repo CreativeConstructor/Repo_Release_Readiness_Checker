@@ -3,7 +3,6 @@ coverage/
 dist/
 .env
 package-lock.json
-checkers/
 config/
 routes/checks.js
 routes/home_routes.js
