@@ -29,7 +29,7 @@ const { mapGitHubError } = require('../services/github/error_mapper');
 const { computeScore } = require('../checkers/scorer');
 const { generateReport } = require('../services/ai/generate_report');
 const { createCheckerResult, FindingType, createFinding } = require('../checkers/helpers');
-const { query } = require('../db');
+const { findCachedCheck, createCheck } = require('./check_store');
 
 // All 6 checkers — imported here so the orchestrator owns the runner list
 const dockerChecker = require('../checkers/docker_checker');
@@ -99,50 +99,6 @@ const runAllCheckers = async (snapshot) => {
 };
 
 /**
- * Saves a completed check to PostgreSQL.
- * Returns the saved row's id and created_at.
- *
- * @param {Object} params
- */
-const persistCheck = async ({
-  userId,
-  repoUrl,
-  repoName,
-  headSha,
-  ruleScore,
-  verdict,
-  report,
-  checkerResults,
-  cached,
-}) => {
-  const result = await query(
-    `INSERT INTO Checks (
-      user_id, repo_url, repo_name, head_sha,
-      rule_score, verdict, report, checker_results,
-      cached, status, created_at
-    ) VALUES (
-      $1, $2, $3, $4,
-      $5, $6, $7::jsonb, $8::jsonb,
-      $9, 'completed', NOW()
-    )
-    RETURNING id, created_at`,
-    [
-      userId,
-      repoUrl,
-      repoName,
-      headSha,
-      ruleScore,
-      verdict,
-      JSON.stringify(report),
-      JSON.stringify(checkerResults),
-      cached,
-    ]
-  );
-
-  return result.rows[0];
-};
-
-/**
  * Core orchestration function.
  *
  * @param {Object} params
@@ -173,30 +129,23 @@ const runFullCheck = async ({ userId, repoUrl, force = false }) => {
   // ── Step 3: Cache lookup (user-scoped: SHA + user_id + repo) ─────────────
   // Private-repo results never leak: cache is per-user, not global.
   if (!force) {
-    const cached = await query(
-      `SELECT id, report, checker_results, rule_score, verdict, created_at
-       FROM Checks
-       WHERE user_id = $1
-         AND repo_url = $2
-         AND head_sha = $3
-         AND status = 'completed'
-       ORDER BY created_at DESC
-       LIMIT 1`,
-      [userId, normalizedUrl, headSha]
-    );
+    const cachedRow = await findCachedCheck({
+      userId,
+      repoUrl: normalizedUrl,
+      headSha,
+    });
 
-    if (cached.rows.length > 0) {
-      const row = cached.rows[0];
+    if (cachedRow) {
       return {
         cached: true,
-        checkId: row.id,
+        checkId: cachedRow.id,
         repoName,
         headSha,
-        ruleScore: row.rule_score,
-        verdict: row.verdict,
-        report: row.report,
-        checkerResults: row.checker_results,
-        createdAt: row.created_at,
+        ruleScore: cachedRow.rule_score,
+        verdict: cachedRow.verdict,
+        report: cachedRow.report,
+        checkerResults: cachedRow.checker_results,
+        createdAt: cachedRow.created_at,
       };
     }
   }
@@ -223,7 +172,7 @@ const runFullCheck = async ({ userId, repoUrl, force = false }) => {
   const report = await generateReport({ checkerResults, scoringResult });
 
   // ── Step 8: Persist ───────────────────────────────────────────────────────
-  const saved = await persistCheck({
+  const saved = await createCheck({
     userId,
     repoUrl: normalizedUrl,
     repoName,
