@@ -9,6 +9,7 @@ const { generalLimiter, authLimiter } = require('./middlewares/rate_limiter');
 
 const healthRoutes = require('./routes/health_routes');
 const authRoutes = require('./routes/auth_routes');
+const checkRoutes = require('./routes/check_routes');
 
 const app = express();
 
@@ -42,6 +43,9 @@ app.use('/auth', authLimiter, authRoutes); // Backwards compatibility alias
 
 // General rate limiter on all /api endpoints
 app.use('/api', generalLimiter);
+
+// Release-readiness check endpoint
+app.use('/api/check', checkRoutes);
 
 // Baseline root response
 app.get('/', (req, res) => {

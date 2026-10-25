@@ -55,13 +55,7 @@ const REPORT_JSON_SCHEMA = {
           'relatedFindingIds',
           'evidenceFilePaths',
         ],
-        required: [
-          'title',
-          'severity',
-          'explanation',
-          'relatedFindingIds',
-          'evidenceFilePaths',
-        ],
+        required: ['title', 'severity', 'explanation', 'relatedFindingIds', 'evidenceFilePaths'],
       },
     },
     recommendations: {
@@ -81,13 +75,7 @@ const REPORT_JSON_SCHEMA = {
             items: { type: Type.STRING },
           },
         },
-        propertyOrdering: [
-          'title',
-          'priority',
-          'action',
-          'relatedFindingIds',
-          'evidenceFilePaths',
-        ],
+        propertyOrdering: ['title', 'priority', 'action', 'relatedFindingIds', 'evidenceFilePaths'],
         required: ['title', 'priority', 'action', 'relatedFindingIds', 'evidenceFilePaths'],
       },
     },
@@ -281,7 +269,10 @@ const generateReport = async ({
   } catch (error) {
     // Never leak API keys or stack traces to callers
     const safeReason =
-      error?.status === 429 || String(error?.message || '').toLowerCase().includes('rate')
+      error?.status === 429 ||
+      String(error?.message || '')
+        .toLowerCase()
+        .includes('rate')
         ? 'rate_limited'
         : 'gemini_unavailable';
 

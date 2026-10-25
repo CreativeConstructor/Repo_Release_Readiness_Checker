@@ -19,14 +19,7 @@ describe('Deterministic Scorer', () => {
   test('weights are centralized and sum to 1.0', () => {
     const sum = Object.values(CHECKER_WEIGHTS).reduce((a, b) => a + b, 0);
     expect(sum).toBeCloseTo(1.0, 10);
-    expect(REQUIRED_CHECKER_IDS).toEqual([
-      'secrets',
-      'tests',
-      'ci',
-      'docker',
-      'readme',
-      'commits',
-    ]);
+    expect(REQUIRED_CHECKER_IDS).toEqual(['secrets', 'tests', 'ci', 'docker', 'readme', 'commits']);
   });
 
   test('computes a representative weighted score', () => {

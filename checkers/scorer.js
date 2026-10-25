@@ -21,11 +21,11 @@
 
 const CHECKER_WEIGHTS = {
   secrets: 0.25,
-  tests: 0.20,
-  ci: 0.20,
+  tests: 0.2,
+  ci: 0.2,
   docker: 0.15,
-  readme: 0.10,
-  commits: 0.10,
+  readme: 0.1,
+  commits: 0.1,
 };
 
 /** All six checker IDs we expect. */

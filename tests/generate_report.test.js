@@ -1,5 +1,8 @@
-const { generateReport, buildPromptPayload, createGeminiClient } =
-  require('../services/ai/generate_report');
+const {
+  generateReport,
+  buildPromptPayload,
+  createGeminiClient,
+} = require('../services/ai/generate_report');
 
 const scoringResult = { ruleScore: 55, verdict: 'needs_work' };
 

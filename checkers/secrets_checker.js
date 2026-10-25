@@ -76,7 +76,8 @@ const SECRET_PATTERNS = [
   {
     id: 'AWS_SECRET_KEY',
     label: 'AWS Secret Access Key',
-    pattern: /(?:aws_secret_access_key|AWS_SECRET_ACCESS_KEY)\s*[=:]\s*["']?[A-Za-z0-9+/]{40}["']?/i,
+    pattern:
+      /(?:aws_secret_access_key|AWS_SECRET_ACCESS_KEY)\s*[=:]\s*["']?[A-Za-z0-9+/]{40}["']?/i,
   },
   {
     id: 'SLACK_TOKEN',

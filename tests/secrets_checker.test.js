@@ -70,7 +70,9 @@ describe('Secrets Checker', () => {
     expect(risky.length).toBeGreaterThanOrEqual(2);
     expect(risky.some((f) => f.filePath === '.env')).toBe(true);
     expect(risky.some((f) => f.filePath === 'credentials.json')).toBe(true);
-    expect(result.metadata.riskyPathsFound).toEqual(expect.arrayContaining(['.env', 'credentials.json']));
+    expect(result.metadata.riskyPathsFound).toEqual(
+      expect.arrayContaining(['.env', 'credentials.json'])
+    );
   });
 
   test('reports missing .gitignore as a risk', async () => {

@@ -99,12 +99,7 @@ describe('GitHub Snapshot Service (fetchRepositorySnapshot)', () => {
     expect(snapshot.fullName).toBe('acme/project');
     expect(snapshot.defaultBranch).toBe('main');
     expect(snapshot.headSha).toBe('abcdef1234567890abcdef1234567890abcdef12');
-    expect(snapshot.filePaths).toEqual([
-      'package.json',
-      'README.md',
-      'src/index.js',
-      '.gitignore',
-    ]);
+    expect(snapshot.filePaths).toEqual(['package.json', 'README.md', 'src/index.js', '.gitignore']);
     expect(snapshot.commits).toHaveLength(1);
     expect(snapshot.commits[0].message).toBe('feat: add release readiness checks');
     expect(snapshot.readme.exists).toBe(true);

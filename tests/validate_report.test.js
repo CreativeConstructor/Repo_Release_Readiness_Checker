@@ -69,7 +69,19 @@ describe('validateReport', () => {
 
   test('rejects missing summary', () => {
     const result = validateReport(
-      { summary: '', risks: [], recommendations: [{ title: 'x', priority: 'low', action: 'y', relatedFindingIds: [], evidenceFilePaths: [] }] },
+      {
+        summary: '',
+        risks: [],
+        recommendations: [
+          {
+            title: 'x',
+            priority: 'low',
+            action: 'y',
+            relatedFindingIds: [],
+            evidenceFilePaths: [],
+          },
+        ],
+      },
       checkerResults
     );
     expect(result.ok).toBe(false);
