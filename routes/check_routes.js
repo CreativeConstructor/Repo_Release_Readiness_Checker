@@ -2,10 +2,13 @@
  * Check Routes
  *
  * All routes under /api/check require authentication.
+ *
  * Routes:
- *   POST /api/check         - Run synchronous repository readiness check
- *   GET  /api/check/history - Paginated history with optional verdict/repo filters
- *   GET  /api/check/:id     - Get full check report by ID with ownership enforcement
+ *   POST /api/check            - Run synchronous repository readiness check
+ *   POST /api/check/async      - Enqueue asynchronous check job via BullMQ
+ *   GET  /api/check/jobs/:jobId - Poll status of an enqueued check job
+ *   GET  /api/check/history    - Paginated check history with filters
+ *   GET  /api/check/:id        - Get full check report by ID with ownership enforcement
  */
 
 const { Router } = require('express');
@@ -13,7 +16,13 @@ const { body, query, param } = require('express-validator');
 
 const authenticateToken = require('../middlewares/token_check');
 const validate = require('../middlewares/validate');
-const { runCheck, getHistory, getCheck } = require('../controllers/check_controller');
+const {
+  runCheck,
+  runCheckAsync,
+  getJob,
+  getHistory,
+  getCheck,
+} = require('../controllers/check_controller');
 
 const router = Router();
 
@@ -45,6 +54,8 @@ const historyValidation = [
   query('repo').optional().trim(),
 ];
 
+const getJobValidation = [param('jobId').trim().notEmpty().withMessage('jobId is required')];
+
 const getCheckValidation = [
   param('id').isInt({ min: 1 }).withMessage('id parameter must be a positive integer').toInt(),
 ];
@@ -56,9 +67,20 @@ const getCheckValidation = [
 router.post('/', validate(checkValidation), runCheck);
 
 /**
+ * POST /api/check/async
+ * Enqueue an asynchronous release-readiness analysis job.
+ */
+router.post('/async', validate(checkValidation), runCheckAsync);
+
+/**
+ * GET /api/check/jobs/:jobId
+ * Poll the status of an enqueued background job.
+ */
+router.get('/jobs/:jobId', validate(getJobValidation), getJob);
+
+/**
  * GET /api/check/history
  * Retrieve user's paginated check history with optional filters.
- * Note: Must be declared before /:id to prevent route shadowing.
  */
 router.get('/history', validate(historyValidation), getHistory);
 

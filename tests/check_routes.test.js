@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const app = require('../app');
 const checkOrchestrator = require('../services/check_orchestrator');
 const checkStore = require('../services/check_store');
+const checkQueue = require('../services/queue/check_queue');
 
 describe('Check Endpoints (/api/check)', () => {
   const JWT_SECRET = 'test-secret-at-least-32-characters-for-jwt';
@@ -143,6 +144,93 @@ describe('Check Endpoints (/api/check)', () => {
 
       expect(res.status).toBe(200);
       expect(spy).toHaveBeenCalledWith(expect.objectContaining({ userId: 1, force: true }));
+    });
+  });
+
+  // ── POST /api/check/async ────────────────────────────────────────────────────
+
+  describe('POST /api/check/async', () => {
+    it('returns 401 when Authorization header is missing', async () => {
+      const res = await request(app)
+        .post('/api/check/async')
+        .send({ repoUrl: 'https://github.com/owner/repo' });
+
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+    });
+
+    it('returns 400 when repoUrl is missing', async () => {
+      const res = await request(app)
+        .post('/api/check/async')
+        .set('Authorization', `Bearer ${validToken}`)
+        .send({});
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+    });
+
+    it('returns 202 Accepted with jobId when check is enqueued', async () => {
+      jest.spyOn(checkQueue, 'enqueueCheckJob').mockResolvedValueOnce('job-777');
+
+      const res = await request(app)
+        .post('/api/check/async')
+        .set('Authorization', `Bearer ${validToken}`)
+        .send({ repoUrl: 'https://github.com/owner/repo' });
+
+      expect(res.status).toBe(202);
+      expect(res.body.success).toBe(true);
+      expect(res.body.message).toMatch(/enqueued/i);
+      expect(res.body.data.jobId).toBe('job-777');
+      expect(res.body.data.statusUrl).toBe('/api/check/jobs/job-777');
+    });
+  });
+
+  // ── GET /api/check/jobs/:jobId ───────────────────────────────────────────────
+
+  describe('GET /api/check/jobs/:jobId', () => {
+    it('returns 401 when Authorization header is missing', async () => {
+      const res = await request(app).get('/api/check/jobs/job-777');
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+    });
+
+    it('returns 404 when job does not exist or user is unauthorized', async () => {
+      const AppError = require('../utils/app_error');
+      jest
+        .spyOn(checkQueue, 'getJobStatus')
+        .mockRejectedValueOnce(new AppError('Job not found', 404));
+
+      const res = await request(app)
+        .get('/api/check/jobs/nonexistent-job')
+        .set('Authorization', `Bearer ${validToken}`);
+
+      expect(res.status).toBe(404);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error.message).toMatch(/not found/i);
+    });
+
+    it('returns 200 with job status details when job is found', async () => {
+      const mockStatus = {
+        jobId: 'job-777',
+        status: 'completed',
+        progress: 100,
+        result: { ruleScore: 88, verdict: 'ready' },
+        failedReason: null,
+        enqueuedAt: new Date().toISOString(),
+        finishedAt: new Date().toISOString(),
+      };
+
+      jest.spyOn(checkQueue, 'getJobStatus').mockResolvedValueOnce(mockStatus);
+
+      const res = await request(app)
+        .get('/api/check/jobs/job-777')
+        .set('Authorization', `Bearer ${validToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.jobId).toBe('job-777');
+      expect(res.body.data.status).toBe('completed');
+      expect(res.body.data.result.ruleScore).toBe(88);
     });
   });
 
