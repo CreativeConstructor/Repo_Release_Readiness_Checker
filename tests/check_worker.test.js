@@ -33,4 +33,20 @@ describe('Check Worker (workers/check_worker.js)', () => {
       force: false,
     });
   });
+
+  it('propagates analysis failures so BullMQ can apply its retry policy', async () => {
+    const failure = new Error('temporary GitHub outage');
+    jest.spyOn(checkOrchestrator, 'runFullCheck').mockRejectedValueOnce(failure);
+
+    await expect(
+      processCheckJob({
+        id: 'job-retry',
+        data: {
+          userId: 7,
+          repoUrl: 'https://github.com/owner/target-repo',
+          force: false,
+        },
+      })
+    ).rejects.toBe(failure);
+  });
 });
