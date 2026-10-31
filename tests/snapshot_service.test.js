@@ -109,6 +109,18 @@ describe('GitHub Snapshot Service (fetchRepositorySnapshot)', () => {
     expect(snapshot.gitignore.exists).toBe(true);
     expect(snapshot.gitignore.content).toBe(gitignoreRaw);
     expect(snapshot.octokit).toBe(mockOctokit);
+    expect(mockOctokit.rest.git.getTree).toHaveBeenCalledWith(
+      expect.objectContaining({ tree_sha: snapshot.headSha })
+    );
+    expect(mockOctokit.rest.repos.listCommits).toHaveBeenCalledWith(
+      expect.objectContaining({ sha: snapshot.headSha })
+    );
+    expect(mockOctokit.rest.repos.getReadme).toHaveBeenCalledWith(
+      expect.objectContaining({ ref: snapshot.headSha })
+    );
+    for (const [options] of mockOctokit.rest.repos.getContent.mock.calls) {
+      expect(options.ref).toBe(snapshot.headSha);
+    }
   });
 
   test('handles missing README (404) gracefully without throwing', async () => {

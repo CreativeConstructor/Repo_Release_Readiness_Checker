@@ -116,11 +116,12 @@ const runFullCheck = async ({ userId, repoUrl, force = false }) => {
 
   // ── Step 2: Fetch HEAD SHA only (cheap — 1 API call) ────────────────────
   let octokit;
+  let headInfo;
   let headSha;
 
   try {
     octokit = await createOctokitClient();
-    const headInfo = await fetchHeadInfo(octokit, owner, repo);
+    headInfo = await fetchHeadInfo(octokit, owner, repo);
     headSha = headInfo.headSha;
   } catch (err) {
     throw mapGitHubError(err, { owner, repo });
@@ -153,7 +154,7 @@ const runFullCheck = async ({ userId, repoUrl, force = false }) => {
   // ── Step 4: Full snapshot ────────────────────────────────────────────────
   let snapshot;
   try {
-    snapshot = await fetchRepositorySnapshot({ owner, repo, octokitClient: octokit });
+    snapshot = await fetchRepositorySnapshot({ owner, repo, octokitClient: octokit, headInfo });
   } catch (err) {
     throw mapGitHubError(err, { owner, repo });
   }

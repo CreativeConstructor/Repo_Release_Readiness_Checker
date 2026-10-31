@@ -92,12 +92,13 @@ const fetchRepositoryTree = async (octokit, owner, repo, treeSha) => {
 /**
  * Fetches the last 20 commits on the repository's default branch.
  */
-const fetchRecentCommits = async (octokit, owner, repo, perPage = 20) => {
+const fetchRecentCommits = async (octokit, owner, repo, perPage = 20, ref) => {
   return withRetry(async () => {
     const { data } = await octokit.rest.repos.listCommits({
       owner,
       repo,
       per_page: perPage,
+      ...(ref ? { sha: ref } : {}),
     });
 
     return data.map((item) => ({
@@ -116,12 +117,13 @@ const fetchRecentCommits = async (octokit, owner, repo, perPage = 20) => {
 /**
  * Fetches and decodes the repository README file, if present.
  */
-const fetchReadme = async (octokit, owner, repo) => {
+const fetchReadme = async (octokit, owner, repo, ref) => {
   try {
     return await withRetry(async () => {
       const { data } = await octokit.rest.repos.getReadme({
         owner,
         repo,
+        ...(ref ? { ref } : {}),
       });
 
       const content = data.content ? Buffer.from(data.content, 'base64').toString('utf-8') : '';
@@ -151,7 +153,7 @@ const fetchReadme = async (octokit, owner, repo) => {
 /**
  * Fetches and parses package.json if present in the repository tree.
  */
-const fetchPackageJson = async (octokit, owner, repo, filePaths) => {
+const fetchPackageJson = async (octokit, owner, repo, filePaths, ref) => {
   const hasPackageJson = filePaths.some((p) => p.toLowerCase() === 'package.json');
   if (!hasPackageJson) {
     return {
@@ -168,6 +170,7 @@ const fetchPackageJson = async (octokit, owner, repo, filePaths) => {
         owner,
         repo,
         path: 'package.json',
+        ...(ref ? { ref } : {}),
       });
 
       if (!data.content) {
@@ -212,7 +215,7 @@ const fetchPackageJson = async (octokit, owner, repo, filePaths) => {
 /**
  * Fetches and decodes the repository Dockerfile if present in the tree.
  */
-const fetchDockerfile = async (octokit, owner, repo, filePaths) => {
+const fetchDockerfile = async (octokit, owner, repo, filePaths, ref) => {
   const dockerfilePath = filePaths.find((p) => /(^|\/)Dockerfile(\.[a-zA-Z0-9_-]+)?$/i.test(p));
   if (!dockerfilePath) {
     return {
@@ -228,6 +231,7 @@ const fetchDockerfile = async (octokit, owner, repo, filePaths) => {
         owner,
         repo,
         path: dockerfilePath,
+        ...(ref ? { ref } : {}),
       });
 
       const content = data.content ? Buffer.from(data.content, 'base64').toString('utf-8') : '';
@@ -254,7 +258,7 @@ const fetchDockerfile = async (octokit, owner, repo, filePaths) => {
  * Fetches root .gitignore content when present in the tree.
  * Used by the secrets checker to verify .env exclusion rules.
  */
-const fetchGitignore = async (octokit, owner, repo, filePaths) => {
+const fetchGitignore = async (octokit, owner, repo, filePaths, ref) => {
   const hasGitignore = filePaths.some((p) => p.toLowerCase() === '.gitignore');
   if (!hasGitignore) {
     return {
@@ -270,6 +274,7 @@ const fetchGitignore = async (octokit, owner, repo, filePaths) => {
         owner,
         repo,
         path: '.gitignore',
+        ...(ref ? { ref } : {}),
       });
 
       const content = data.content ? Buffer.from(data.content, 'base64').toString('utf-8') : '';
@@ -303,25 +308,33 @@ const fetchGitignore = async (octokit, owner, repo, filePaths) => {
  * @returns {Promise<Object>} Snapshot containing tree, commits, README, package.json,
  *   Dockerfile, .gitignore, HEAD SHA, and the Octokit client for follow-up blob scans
  */
-const fetchRepositorySnapshot = async ({ owner, repo, token, octokitClient }) => {
+const fetchRepositorySnapshot = async ({
+  owner,
+  repo,
+  token,
+  octokitClient,
+  headInfo: knownHeadInfo,
+}) => {
   const client = octokitClient || (await createOctokitClient(token));
 
   try {
     // 1. Resolve HEAD commit SHA and default branch
-    const { defaultBranch, headSha } = await fetchHeadInfo(client, owner, repo);
+    // Reuse the caller's resolved HEAD when supplied. This keeps all snapshot
+    // reads pinned to the same revision used for cache lookup and persistence.
+    const { defaultBranch, headSha } = knownHeadInfo || (await fetchHeadInfo(client, owner, repo));
 
     // 2. Concurrently fetch Git Tree, Recent Commits, and README
     const [treeResult, commits, readme] = await Promise.all([
       fetchRepositoryTree(client, owner, repo, headSha),
-      fetchRecentCommits(client, owner, repo, 20),
-      fetchReadme(client, owner, repo),
+      fetchRecentCommits(client, owner, repo, 20, headSha),
+      fetchReadme(client, owner, repo, headSha),
     ]);
 
     // 3. Fetch package.json, Dockerfile, and .gitignore if present in the tree
     const [packageJson, dockerfile, gitignore] = await Promise.all([
-      fetchPackageJson(client, owner, repo, treeResult.filePaths),
-      fetchDockerfile(client, owner, repo, treeResult.filePaths),
-      fetchGitignore(client, owner, repo, treeResult.filePaths),
+      fetchPackageJson(client, owner, repo, treeResult.filePaths, headSha),
+      fetchDockerfile(client, owner, repo, treeResult.filePaths, headSha),
+      fetchGitignore(client, owner, repo, treeResult.filePaths, headSha),
     ]);
 
     return {
