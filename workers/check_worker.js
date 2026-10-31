@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 /**
  * Check Worker (BullMQ)
  *
@@ -78,7 +80,6 @@ const createCheckWorker = (options = {}) => {
 
 // Start standalone worker process when executed directly
 if (require.main === module) {
-  require('dotenv').config();
   console.log('[Worker Process] Initializing BullMQ Worker...');
   const worker = createCheckWorker();
 

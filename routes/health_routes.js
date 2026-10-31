@@ -22,10 +22,8 @@ router.get('/db', async (req, res) => {
       latencyMs: health.latencyMs,
     });
   } catch (error) {
-    return sendError(res, 'Database connection failed', 503, {
-      database: 'disconnected',
-      detail: error.message,
-    });
+    console.error('[Health] Database readiness check failed:', error.message);
+    return sendError(res, 'Database connection failed', 503, { database: 'disconnected' });
   }
 });
 

@@ -31,11 +31,13 @@ describe('Health Probes (/health and /health/db)', () => {
     jest
       .spyOn(db, 'healthCheck')
       .mockRejectedValueOnce(new Error('Connection timeout acquiring client from pool'));
+    jest.spyOn(console, 'error').mockImplementation(() => {});
 
     const res = await request(app).get('/health/db');
     expect(res.status).toBe(503);
     expect(res.body.success).toBe(false);
     expect(res.body.error.message).toBe('Database connection failed');
     expect(res.body.error.details.database).toBe('disconnected');
+    expect(JSON.stringify(res.body)).not.toContain('Connection timeout');
   });
 });

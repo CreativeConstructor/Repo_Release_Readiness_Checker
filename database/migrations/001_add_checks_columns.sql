@@ -1,11 +1,12 @@
--- Migration 001: Align Checks table with orchestrator requirements
+-- Migration 001: Align Checks table with orchestrator requirements on legacy databases.
 --
--- The original schema in init.sql had:
+-- Earlier installations may have started with a schema that had:
 --   - status CHECK constraint with 'completed' but index used 'complete' (typo)
 --   - no head_sha, rule_score, verdict, cached, report, checker_results columns
 --   - risks/suggestions columns instead of a single JSONB report
 --
--- This migration is idempotent (safe to run multiple times).
+-- The current database/init.sql already defines the complete schema. This
+-- idempotent migration remains for databases created from the earlier layout.
 
 -- 1. Add new columns (IF NOT EXISTS guards make it re-runnable)
 ALTER TABLE Checks

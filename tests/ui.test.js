@@ -23,6 +23,14 @@ describe('Static Frontend UI & Root Endpoints', () => {
     );
   });
 
+  it('defaults to JSON at / when the client does not explicitly request HTML', async () => {
+    const res = await request(app).get('/').set('Accept', '*/*');
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/json/);
+    expect(res.body.name).toBe('Repository Release Readiness Checker API');
+  });
+
   it('serves static frontend assets like style.css and ui.js', async () => {
     const cssRes = await request(app).get('/style.css');
     expect(cssRes.status).toBe(200);

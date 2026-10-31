@@ -80,12 +80,12 @@ The schema is in [`database/init.sql`](database/init.sql); it is mounted into th
 
 | Table    | Purpose                                                                                                                                |
 | -------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `Users`  | Usernames, unique emails, bcrypt password hashes, and creation timestamps.                                                             |
+| `Users`  | Unique usernames and emails, bcrypt password hashes, and creation timestamps.                                                          |
 | `Checks` | User-owned repository checks, status, commit SHA, score, verdict, cache metadata, report JSONB, checker-results JSONB, and timestamps. |
 
 Indexes support user/repository/SHA cache lookup, user history pagination, and verdict filtering. Query values are parameterized through `pg`.
 
-PostgreSQL runs `init.sql` only when it initializes an empty data directory. Existing named volumes are preserved across `docker compose down`; apply the relevant SQL migration manually when upgrading an existing database schema.
+PostgreSQL runs `init.sql` only when it initializes an empty data directory. Existing named volumes are preserved across `docker compose down`; apply the relevant SQL migration manually when upgrading an existing database schema. Migration `002_unique_usernames.sql` adds the database uniqueness guarantee expected by registration; it stops with an explicit error if an older database already contains duplicate usernames.
 
 ## Requirements
 
@@ -102,6 +102,7 @@ Copy `.env.example` to `.env` and set local values. Never commit `.env` or real 
 | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | `PORT`, `NODE_ENV`, `CLIENT_ORIGIN`                                     | HTTP port, runtime mode, and allowed browser origin.                                                                                   |
 | `DATABASE_URL`                                                          | PostgreSQL connection string for direct local runs. Compose constructs the container URL from `DB_USER`, `DB_PASSWORD`, and `DB_NAME`. |
+| `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_PORT`                          | Compose credentials/database and the host port mapped to Postgres.                                                                     |
 | `DB_POOL_MAX`, `DB_IDLE_TIMEOUT_MS`, `DB_CONN_TIMEOUT_MS`               | PostgreSQL connection-pool limits and timeouts.                                                                                        |
 | `JWT_SECRET`, `JWT_EXPIRES_IN`                                          | Required signing secret and token lifetime.                                                                                            |
 | `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX_GENERAL`, `RATE_LIMIT_MAX_AUTH` | General API and stricter authentication rate limits.                                                                                   |
@@ -212,7 +213,7 @@ npm run lint
 npm run format:check
 ```
 
-The PostgreSQL/Redis integration suite is enabled with `RUN_SERVICE_INTEGRATION=true` and requires reachable services described by `DATABASE_URL` and `REDIS_URL`. It exercises real registration/login, analysis persistence and cache reuse, and a Worker retry/ownership flow while mocking Octokit and Gemini. The GitHub Actions workflow starts these services, runs the integration suite, and builds the API and Worker Docker images.
+The PostgreSQL/Redis integration suite is skipped by default. Enable it with `RUN_SERVICE_INTEGRATION=true` after starting reachable services described by `DATABASE_URL` and `REDIS_URL`. It exercises real registration/login, analysis persistence and cache reuse, and a Worker retry/ownership flow while mocking Octokit and Gemini. The GitHub Actions workflow starts these services, runs the integration suite, and builds the API and Worker Docker images.
 
 To build the local images:
 
@@ -237,5 +238,5 @@ docker compose build
 - AI report validation constrains the response schema and referenced finding IDs/file paths. It cannot mathematically guarantee every sentence in generated prose is correct; the fallback is rule-based.
 - Cache reuse is scoped to the authenticated user, repository URL, and current HEAD SHA. `force` can request a fresh analysis.
 - Redis job status is retained for a bounded period by BullMQ cleanup settings; PostgreSQL remains the report-history store.
-- Local test environments without PostgreSQL and Redis skip the service integration suite. CI runs it with service containers.
+- The service integration suite is skipped unless `RUN_SERVICE_INTEGRATION=true`; CI enables it with PostgreSQL and Redis service containers.
 - This repository documents local operation and CI verification; it does not include a hosted deployment setup.

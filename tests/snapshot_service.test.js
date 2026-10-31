@@ -1,10 +1,20 @@
 const {
   fetchRepositorySnapshot,
+  isUsableGitHubToken,
   fetchPackageJson,
   fetchDockerfile,
   fetchGitignore,
 } = require('../services/github/snapshot_service');
 const AppError = require('../utils/app_error');
+
+describe('GitHub token configuration', () => {
+  test('ignores blank and template tokens while accepting a configured token', () => {
+    expect(isUsableGitHubToken('')).toBe(false);
+    expect(isUsableGitHubToken('ghp_your_github_personal_access_token_here')).toBe(false);
+    expect(isUsableGitHubToken('  ')).toBe(false);
+    expect(isUsableGitHubToken('ghp_exampleconfiguredtoken')).toBe(true);
+  });
+});
 
 describe('GitHub Snapshot Service (fetchRepositorySnapshot)', () => {
   let mockOctokit;

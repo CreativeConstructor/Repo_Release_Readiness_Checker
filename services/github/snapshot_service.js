@@ -14,6 +14,11 @@ const getOctokitClass = async () => {
   return CachedOctokit;
 };
 
+const isUsableGitHubToken = (token) =>
+  typeof token === 'string' &&
+  token.trim().length > 0 &&
+  !/your[_-]github[_-]personal[_-]access[_-]token|ghp_your/i.test(token);
+
 /**
  * Creates an Octokit instance with optional auth token and default timeout.
  */
@@ -25,7 +30,7 @@ const createOctokitClient = async (token = process.env.GITHUB_TOKEN) => {
     },
   };
 
-  if (token && typeof token === 'string' && token.trim().length > 0) {
+  if (isUsableGitHubToken(token)) {
     options.auth = token.trim();
   }
 
@@ -363,6 +368,7 @@ const fetchRepositorySnapshot = async ({
 
 module.exports = {
   createOctokitClient,
+  isUsableGitHubToken,
   fetchHeadInfo,
   fetchRepositoryTree,
   fetchRecentCommits,

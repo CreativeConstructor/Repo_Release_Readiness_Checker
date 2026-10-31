@@ -116,6 +116,36 @@ describe('validateReport', () => {
     expect(result.reason).toMatch(/evidence|grounding/i);
   });
 
+  test('rejects report items that provide no grounded finding references', () => {
+    const result = validateReport(
+      {
+        summary: 'A report without traceable evidence.',
+        risks: [
+          {
+            title: 'Unsupported risk',
+            severity: 'high',
+            explanation: 'No finding supports this claim.',
+            relatedFindingIds: [],
+            evidenceFilePaths: [],
+          },
+        ],
+        recommendations: [
+          {
+            title: 'Unsupported recommendation',
+            priority: 'low',
+            action: 'Make a change with no supporting finding.',
+            relatedFindingIds: [],
+            evidenceFilePaths: [],
+          },
+        ],
+      },
+      checkerResults
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.reason).toMatch(/evidence grounding/i);
+  });
+
   test('rejects invented file paths', () => {
     const raw = {
       summary: 'Bad paths',

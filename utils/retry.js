@@ -3,7 +3,7 @@
  * Retries:
  *  - Network errors (ECONNRESET, ETIMEDOUT, ENOTFOUND, EAI_AGAIN, ECONNREFUSED)
  *  - HTTP 429 (Rate Limited / Too Many Requests)
- *  - HTTP 5xx (500, 502, 503, 504)
+ *  - Any HTTP 5xx server error
  * Strict rule: NEVER retry other 4xx errors (400, 401, 403, 404, 422).
  *
  * @param {Error} error

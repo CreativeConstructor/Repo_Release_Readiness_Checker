@@ -30,10 +30,6 @@ const buildEvidenceIndex = (checkerResults = []) => {
     for (const finding of result.findings) {
       if (finding?.id) findingIds.add(finding.id);
       if (finding?.filePath) filePaths.add(finding.filePath);
-      // Also index paths mentioned in evidence strings when they look like paths
-      if (typeof finding?.evidence === 'string') {
-        // No free-form parsing — only explicit filePath fields are trusted
-      }
     }
   }
 
@@ -68,10 +64,8 @@ const sanitizeRisk = (item, evidence) => {
   const relatedFindingIds = filterFindingIds(item.relatedFindingIds, evidence.findingIds);
   const evidenceFilePaths = filterFilePaths(item.evidenceFilePaths, evidence.filePaths);
 
-  // Risks that cite findings must keep at least one grounded finding id
-  if (Array.isArray(item.relatedFindingIds) && item.relatedFindingIds.length > 0) {
-    if (relatedFindingIds.length === 0) return null;
-  }
+  // Every generated risk must point to at least one real checker finding.
+  if (relatedFindingIds.length === 0) return null;
 
   // Drop any invented file paths; if AI only cited fake paths, reject the item
   if (Array.isArray(item.evidenceFilePaths) && item.evidenceFilePaths.length > 0) {
@@ -98,9 +92,8 @@ const sanitizeRecommendation = (item, evidence) => {
   const relatedFindingIds = filterFindingIds(item.relatedFindingIds, evidence.findingIds);
   const evidenceFilePaths = filterFilePaths(item.evidenceFilePaths, evidence.filePaths);
 
-  if (Array.isArray(item.relatedFindingIds) && item.relatedFindingIds.length > 0) {
-    if (relatedFindingIds.length === 0) return null;
-  }
+  // Every generated recommendation must point to at least one real finding.
+  if (relatedFindingIds.length === 0) return null;
 
   if (Array.isArray(item.evidenceFilePaths) && item.evidenceFilePaths.length > 0) {
     if (evidenceFilePaths.length === 0) return null;

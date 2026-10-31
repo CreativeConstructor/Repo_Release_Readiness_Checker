@@ -54,7 +54,12 @@ app.use('/ui', express.static(path.join(__dirname, 'frontend')));
 
 // Baseline root response
 app.get('/', (req, res) => {
-  if (req.accepts('html') && !req.xhr) {
+  const acceptHeader = req.get('Accept') || '';
+  const explicitlyAcceptsHtml = acceptHeader
+    .split(',')
+    .some((mediaType) => mediaType.split(';')[0].trim().toLowerCase() === 'text/html');
+
+  if (explicitlyAcceptsHtml && req.accepts('html') && !req.xhr) {
     return res.sendFile(path.join(__dirname, 'frontend', 'index.html'));
   }
   res.json({
