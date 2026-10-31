@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
@@ -47,8 +48,15 @@ app.use('/api', generalLimiter);
 // Release-readiness check endpoint
 app.use('/api/check', checkRoutes);
 
+// Static frontend UI assets (index: false prevents hijacking JSON root requests)
+app.use(express.static(path.join(__dirname, 'frontend'), { index: false }));
+app.use('/ui', express.static(path.join(__dirname, 'frontend')));
+
 // Baseline root response
 app.get('/', (req, res) => {
+  if (req.accepts('html') && !req.xhr) {
+    return res.sendFile(path.join(__dirname, 'frontend', 'index.html'));
+  }
   res.json({
     name: 'Repository Release Readiness Checker API',
     status: 'running',

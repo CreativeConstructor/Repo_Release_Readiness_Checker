@@ -1,10 +1,16 @@
-FROM node:18-alpine
-WORKDIR /express-app
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install curl for container healthchecks
+RUN apk add --no-cache curl
 
 COPY package*.json ./
 
-RUN npm install
+RUN npm ci --omit=dev
+
 COPY . .
 
 EXPOSE 3000
-CMD ["npm","start"]
+
+CMD ["npm", "start"]

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Repository Release Readiness Checker</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <div class="container header-content">
+      <div class="logo">
+        <span class="icon">🚀</span>
+        <h1>Release Readiness Checker</h1>
+      </div>
+      <div id="user-badge" class="user-badge hidden">
+        <span id="user-display"></span>
+        <button id="logout-btn" class="btn btn-outline btn-sm">Sign Out</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Auth Section (Visible when logged out) -->
+    <section id="auth-section" class="card">
+      <div class="tabs">
+        <button id="tab-login" class="tab-btn active">Sign In</button>
+        <button id="tab-register" class="tab-btn">Create Account</button>
+      </div>
+
+      <form id="auth-form" class="form">
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input type="text" id="username" required autocomplete="username" placeholder="e.g. jdoe">
+        </div>
+
+        <div id="email-group" class="form-group hidden">
+          <label for="email">Email (optional)</label>
+          <input type="email" id="email" autocomplete="email" placeholder="jdoe@example.com">
+        </div>
+
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" required autocomplete="current-password" placeholder="At least 6 characters">
+        </div>
+
+        <div id="auth-alert" class="alert hidden"></div>
+
+        <button type="submit" id="auth-submit-btn" class="btn btn-primary btn-block">Sign In</button>
+      </form>
+    </section>
+
+    <!-- Main App Section (Visible when logged in) -->
+    <div id="app-section" class="hidden">
+      <!-- Submission Form Card -->
+      <section class="card">
+        <h2>Analyze GitHub Repository</h2>
+        <p class="subtitle">Evaluates test signals, secrets hygiene, Docker containerization, README, CI/CD, and commit hygiene.</p>
+
+        <form id="check-form" class="form">
+          <div class="form-group">
+            <label for="repo-url">GitHub Repository URL</label>
+            <input type="url" id="repo-url" required placeholder="https://github.com/owner/repository" value="">
+          </div>
+
+          <div class="form-row">
+            <label class="checkbox-label">
+              <input type="checkbox" id="force-check">
+              <span>Bypass cache (force fresh analysis)</span>
+            </label>
+
+            <label class="checkbox-label">
+              <input type="checkbox" id="async-mode">
+              <span>Run in background (BullMQ Async Queue)</span>
+            </label>
+          </div>
+
+          <div id="check-alert" class="alert hidden"></div>
+
+          <button type="submit" id="submit-check-btn" class="btn btn-primary">
+            <span id="btn-text">Run Readiness Check</span>
+            <span id="btn-spinner" class="spinner hidden"></span>
+          </button>
+        </form>
+      </section>
+
+      <!-- Active / Polling Job Status Card -->
+      <section id="job-status-card" class="card hidden">
+        <div class="job-status-header">
+          <h3>Background Job Status</h3>
+          <span id="job-status-badge" class="badge">Queued</span>
+        </div>
+        <p id="job-info-text">Your repository analysis is currently queued in Redis. Polling for results...</p>
+      </section>
+
+      <!-- Result Card -->
+      <section id="result-card" class="card hidden">
+        <div class="result-header">
+          <div>
+            <h2 id="result-repo-name">owner/repo</h2>
+            <p class="meta-line">
+              Commit: <code id="result-head-sha"></code> |
+              Checked: <span id="result-date"></span> |
+              <span id="result-cache-badge" class="badge badge-info">Cached</span>
+            </p>
+          </div>
+          <div class="score-box">
+            <div id="result-score-number" class="score-number">--</div>
+            <div id="result-verdict-badge" class="badge verdict-badge">READY</div>
+          </div>
+        </div>
+
+        <div class="summary-box">
+          <h4>Executive Summary</h4>
+          <p id="result-summary-text"></p>
+        </div>
+
+        <!-- Checker Breakdown Table -->
+        <div class="section-block">
+          <h3>Deterministic Checker Breakdown</h3>
+          <table class="table" id="breakdown-table">
+            <thead>
+              <tr>
+                <th>Checker</th>
+                <th>Score</th>
+                <th>Weight</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="breakdown-tbody"></tbody>
+          </table>
+        </div>
+
+        <!-- Risks & Recommendations -->
+        <div class="grid-two">
+          <div class="section-block">
+            <h3>Identified Risks</h3>
+            <ul id="risks-list" class="findings-list"></ul>
+          </div>
+          <div class="section-block">
+            <h3>Recommended Fixes</h3>
+            <ul id="recommendations-list" class="findings-list"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- History Card -->
+      <section class="card">
+        <div class="history-header">
+          <h2>Analysis History</h2>
+          <div class="history-filters">
+            <select id="filter-verdict" class="select-input">
+              <option value="">All Verdicts</option>
+              <option value="ready">Ready</option>
+              <option value="needs_work">Needs Work</option>
+              <option value="not_ready">Not Ready</option>
+            </select>
+            <input type="text" id="filter-repo" class="text-input" placeholder="Filter by repository...">
+            <button id="refresh-history-btn" class="btn btn-outline btn-sm">Refresh</button>
+          </div>
+        </div>
+
+        <div id="history-container">
+          <table class="table" id="history-table">
+            <thead>
+              <tr>
+                <th>Repository</th>
+                <th>Score</th>
+                <th>Verdict</th>
+                <th>Commit SHA</th>
+                <th>Date</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="history-tbody">
+              <tr><td colspan="6" class="text-center">Loading history...</td></tr>
+            </tbody>
+          </table>
+          <div id="history-pagination" class="pagination-bar"></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="/ui.js"></script>
+</body>
+</html>
